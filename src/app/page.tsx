@@ -1,6 +1,17 @@
 import { signOut } from "@/auth";
-import { prisma } from "@/lib/prisma";
 import { requireUser } from "@/lib/guard";
+import {
+  getCategories,
+  getDashboard,
+  getDateBounds,
+} from "@/lib/analytics";
+import { normalizeFilters, type RawParams } from "@/lib/filters";
+import { CurrencyToggle } from "@/components/CurrencyToggle";
+import { FilterBar } from "@/components/FilterBar";
+import { KpiCards } from "@/components/KpiCards";
+import { CategoryChart } from "@/components/CategoryChart";
+import { DailyChart } from "@/components/DailyChart";
+import { OperationsTable } from "@/components/OperationsTable";
 
 export const dynamic = "force-dynamic";
 
@@ -9,54 +20,77 @@ async function logout() {
   await signOut({ redirectTo: "/login" });
 }
 
-export default async function Home() {
+const ymd = (d: Date) => d.toISOString().slice(0, 10);
+
+export default async function Dashboard({
+  searchParams,
+}: {
+  searchParams: Promise<RawParams>;
+}) {
   const session = await requireUser();
-  const state = await prisma.syncState.findUnique({ where: { id: 1 } });
+  const params = await searchParams;
+  const filters = normalizeFilters(params, new Date());
+
+  const [dash, categories, bounds] = await Promise.all([
+    getDashboard(filters),
+    getCategories(),
+    getDateBounds(),
+  ]);
 
   return (
-    <main className="mx-auto flex min-h-dvh max-w-3xl flex-col justify-center gap-6 px-6 py-16">
-      <div className="flex items-center justify-between gap-4">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-3xl font-semibold tracking-tight">
-            Бюджет — дашборд
+    <main className="mx-auto flex min-h-dvh max-w-5xl flex-col gap-4 px-4 py-6 sm:px-6 sm:py-8">
+      {/* Шапка */}
+      <header className="flex items-center justify-between gap-4">
+        <div className="flex flex-col">
+          <h1 className="text-xl font-semibold tracking-tight sm:text-2xl">
+            Бюджет
           </h1>
-          <p className="text-sm opacity-60">{session?.user?.email}</p>
+          <span className="text-xs text-white/50">{session.user?.email}</span>
         </div>
-        <form action={logout}>
-          <button
-            type="submit"
-            className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm transition-opacity hover:opacity-80"
-          >
-            Выйти
-          </button>
-        </form>
+        <div className="flex items-center gap-2">
+          <CurrencyToggle value={filters.currency} />
+          <form action={logout}>
+            <button
+              type="submit"
+              className="h-9 rounded-lg border border-white/10 bg-white/5 px-3 text-sm text-white/70 transition-colors hover:text-white"
+            >
+              Выйти
+            </button>
+          </form>
+        </div>
+      </header>
+
+      <FilterBar
+        from={ymd(filters.from)}
+        to={ymd(filters.to)}
+        category={filters.category}
+        type={filters.type}
+        q={filters.q}
+        categories={categories.map((c) => c.name)}
+        bounds={bounds}
+      />
+
+      <KpiCards kpi={dash.kpi} currency={filters.currency} rate={dash.rate} />
+
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
+        <DailyChart data={dash.series} currency={filters.currency} rate={dash.rate} />
+        <CategoryChart
+          data={dash.byExpense}
+          currency={filters.currency}
+          rate={dash.rate}
+        />
       </div>
 
-      <p className="text-[15px] leading-relaxed opacity-70">
-        Вход работает. Данные синхронизируются из Google-таблицы в Postgres.
-        Дальше: API-агрегации и сам дашборд (KPI · категории · фильтры · таблица ·
-        Сум/USD).
-      </p>
+      <OperationsTable
+        page={dash.operations}
+        currency={filters.currency}
+        rate={dash.rate}
+      />
 
-      <div className="rounded-xl border border-white/10 bg-white/5 p-4 text-sm">
-        <div className="mb-1 font-medium opacity-80">Синхронизация</div>
-        {state ? (
-          <div className="opacity-70">
-            {state.ok ? "✓ ок" : "✗ ошибка"} · операций: {state.ops} ·
-            категорий: {state.categories} · курсов: {state.rates} ·{" "}
-            {new Date(state.syncedAt).toLocaleString("ru-RU", {
-              timeZone: "Asia/Tashkent",
-            })}
-            {state.message ? ` · ${state.message}` : ""}
-          </div>
-        ) : (
-          <div className="opacity-70">ещё не выполнялась</div>
-        )}
-      </div>
-
-      <div className="inline-flex w-fit items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs opacity-70">
-        v1 · фаза 3: вход
-      </div>
+      <footer className="pt-2 text-center text-xs text-white/30">
+        Курс: {dash.rate ? `1$ = ${dash.rate.toLocaleString("ru-RU")} сум` : "—"} ·
+        данные из Google-таблицы
+      </footer>
     </main>
   );
 }
