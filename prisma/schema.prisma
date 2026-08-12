@@ -49,9 +49,11 @@ model User {
 
 /// Метаданные последнего синхрона.
 model SyncState {
-  id       Int      @id @default(1)
-  syncedAt DateTime @default(now()) @updatedAt
-  ops      Int      @default(0)
-  ok       Boolean  @default(true)
-  message  String   @default("")
+  id         Int      @id @default(1)
+  syncedAt   DateTime @default(now())
+  ops        Int      @default(0)
+  categories Int      @default(0)
+  rates      Int      @default(0)
+  ok         Boolean  @default(true)
+  message    String   @default("")
 }
