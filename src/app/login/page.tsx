@@ -36,10 +36,10 @@ export default async function LoginPage({
 
       <form action={login} className="flex flex-col gap-4">
         <label className="flex flex-col gap-1.5">
-          <span className="text-sm opacity-80">Email</span>
+          <span className="text-sm opacity-80">Логин</span>
           <input
             name="email"
-            type="email"
+            type="text"
             required
             autoComplete="username"
             autoFocus
@@ -63,7 +63,7 @@ export default async function LoginPage({
             role="alert"
             className="rounded-lg border border-red-500/30 bg-red-500/10 px-3 py-2 text-sm text-red-300"
           >
-            Неверный email или пароль.
+            Неверный логин или пароль.
           </p>
         ) : null}
 
