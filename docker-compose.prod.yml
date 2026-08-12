@@ -22,8 +22,7 @@ services:
       db:
         condition: service_healthy
     env_file: .env
-    volumes:
-      - ./sa.json:/app/sa.json:ro   # ключ сервис-аккаунта (рендерится из vault)
+    # Ключ сервис-аккаунта — из GOOGLE_SA_JSON_B64 (в .env из Infisical). Файл не монтируется.
     networks: [internal, edge]
 
 networks:
