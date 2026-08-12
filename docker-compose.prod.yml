@@ -1,0 +1,36 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: budget
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: budget
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U budget -d budget"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    networks: [internal]
+
+  app:
+    build: .
+    restart: unless-stopped
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    volumes:
+      - ./sa.json:/app/sa.json:ro   # ключ сервис-аккаунта (рендерится из vault)
+    networks: [internal, edge]
+
+networks:
+  internal:
+    driver: bridge
+  edge:
+    external: true
+
+volumes:
+  pgdata:

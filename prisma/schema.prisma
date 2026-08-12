@@ -1,0 +1,57 @@
+// Postgres — зеркало Google-таблицы «Бюджет» + служебные таблицы.
+// Источник правды — таблица; сюда синхронизируется для быстрой аналитики.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+/// Справочник категорий (лист «Категории»).
+model Category {
+  id   Int    @id @default(autoincrement())
+  name String @unique
+  type String // "Расход" | "Доход"
+}
+
+/// Операции (лист «Операции»). Полная перезагрузка при синхроне.
+model Operation {
+  id          Int      @id @default(autoincrement())
+  date        DateTime @db.Date
+  category    String
+  description String   @default("")
+  amountSum   Decimal  @db.Decimal(18, 2) // сумма в сумах (база)
+  currency    String   @default("SUM")
+  type        String // "Доход" | "Расход"
+  sourceRow   Int? // строка в таблице (для отладки)
+
+  @@index([date])
+  @@index([category])
+  @@index([type])
+}
+
+/// История курса USD→сум (лист «Курсы», столбцы E:F).
+model Rate {
+  id   Int      @id @default(autoincrement())
+  date DateTime @unique @db.Date
+  rate Decimal  @db.Decimal(18, 4) // 1 USD = rate сум
+}
+
+/// Пользователь для входа (NextAuth credentials).
+model User {
+  id       String @id @default(cuid())
+  email    String @unique
+  password String
+}
+
+/// Метаданные последнего синхрона.
+model SyncState {
+  id       Int      @id @default(1)
+  syncedAt DateTime @default(now()) @updatedAt
+  ops      Int      @default(0)
+  ok       Boolean  @default(true)
+  message  String   @default("")
+}
