@@ -15,12 +15,27 @@ services:
       retries: 12
     networks: [internal]
 
+  # Одноразовый прогон миграций из стадии builder (там полный prisma CLI со всеми зависимостями).
+  migrate:
+    build:
+      context: .
+      target: builder
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    env_file: .env
+    command: sh -c "node_modules/.bin/prisma migrate deploy"
+    networks: [internal]
+
   app:
     build: .
     restart: unless-stopped
     depends_on:
       db:
         condition: service_healthy
+      migrate:
+        condition: service_completed_successfully
     env_file: .env
     # Ключ сервис-аккаунта — из GOOGLE_SA_JSON_B64 (в .env из Infisical). Файл не монтируется.
     networks: [internal, edge]
